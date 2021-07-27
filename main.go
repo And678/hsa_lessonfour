@@ -3,6 +3,8 @@ package main
 import (
 	"database/sql"
 	_ "github.com/go-sql-driver/mysql"
+	"math"
+	"math/rand"
 	"net/http"
 	"strconv"
 	"time"
@@ -17,6 +19,7 @@ type Request struct {
 
 var dbConnection *sql.DB
 var cache []byte
+var expiry time.Time
 
 func main() {
 	var err error
@@ -35,7 +38,7 @@ func main() {
 }
 
 func getData(r *http.Request) []byte {
-	dbConnection.Exec("insert into main.requests (createdAt, userAgent, body) values (?, ?, ?)",
+	dbConnection.Exec("INSERT INTO main.requests (createdAt, userAgent, body) VALUES (?, ?, ?)",
 		time.Now(), r.UserAgent(), "r.Body")
 
 	rows, _ := dbConnection.Query("SELECT * FROM main.requests")
@@ -53,10 +56,10 @@ func getData(r *http.Request) []byte {
 }
 
 func getCachedData(w http.ResponseWriter, r *http.Request) {
-	if cache == nil {
+	if cache == nil || time.Now().Add(-time.Second * time.Duration(math.Log(rand.Float64()))).After(expiry) {
 		cache = getData(r)
+		expiry = time.Now().Add(time.Second)
 	}
-
 	w.Write(cache)
 }
 
